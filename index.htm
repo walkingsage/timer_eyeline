@@ -19,6 +19,7 @@
             display: flex;
             flex-direction: column;
             align-items: center;
+            touch-action: pan-y;
         }
 
         .header {
@@ -36,6 +37,16 @@
         .subtitle {
             color: #666;
             font-size: 0.9rem;
+            margin-bottom: 10px;
+        }
+
+        .drag-info {
+            color: #8a2be2;
+            font-size: 0.8rem;
+            background: rgba(138, 43, 226, 0.1);
+            padding: 8px 12px;
+            border-radius: 20px;
+            margin-top: 5px;
         }
 
         .timers-container {
@@ -54,11 +65,54 @@
             display: flex;
             flex-direction: column;
             align-items: center;
-            transition: transform 0.2s ease;
+            transition: transform 0.2s ease, box-shadow 0.2s ease;
+            position: relative;
+            user-select: none;
         }
 
         .timer-card:hover {
             transform: translateY(-2px);
+            box-shadow: 0 6px 16px rgba(0, 0, 0, 0.12);
+        }
+
+        .timer-card.dragging {
+            opacity: 0.8;
+            transform: rotate(3deg) scale(1.02);
+            box-shadow: 0 8px 25px rgba(0, 0, 0, 0.2);
+            z-index: 1000;
+        }
+
+        .timer-card.placeholder {
+            background: rgba(138, 43, 226, 0.05);
+            border: 2px dashed #8a2be2;
+            opacity: 0.6;
+        }
+
+        .drag-handle {
+            position: absolute;
+            top: 10px;
+            left: 10px;
+            width: 24px;
+            height: 24px;
+            display: flex;
+            flex-direction: column;
+            justify-content: center;
+            align-items: center;
+            cursor: grab;
+            opacity: 0.5;
+            transition: opacity 0.2s;
+        }
+
+        .drag-handle:hover {
+            opacity: 1;
+        }
+
+        .drag-dot {
+            width: 4px;
+            height: 4px;
+            background: #8a2be2;
+            border-radius: 50%;
+            margin: 1px 0;
         }
 
         .timer-title {
@@ -67,6 +121,7 @@
             margin-bottom: 12px;
             text-align: center;
             font-weight: 600;
+            padding: 0 20px;
         }
 
         .timer-display {
@@ -154,11 +209,17 @@
     <div class="header">
         <h1>Таймеры для мастера по ресницам</h1>
         <p class="subtitle">Управляйте временем процедур</p>
+        <div class="drag-info">💡 Удерживайте за точки слева и перетаскивайте таймеры для изменения порядка</div>
     </div>
 
-    <div class="timers-container">
+    <div class="timers-container" id="timersContainer">
         <!-- Таймер 1 -->
-        <div class="timer-card">
+        <div class="timer-card" data-id="1">
+            <div class="drag-handle">
+                <div class="drag-dot"></div>
+                <div class="drag-dot"></div>
+                <div class="drag-dot"></div>
+            </div>
             <div class="timer-title">Левая верхняя ресница</div>
             <div class="timer-display" id="timer1">00:00:00</div>
             <div class="timer-controls">
@@ -169,7 +230,12 @@
         </div>
 
         <!-- Таймер 2 -->
-        <div class="timer-card">
+        <div class="timer-card" data-id="2">
+            <div class="drag-handle">
+                <div class="drag-dot"></div>
+                <div class="drag-dot"></div>
+                <div class="drag-dot"></div>
+            </div>
             <div class="timer-title">Левая нижняя ресница</div>
             <div class="timer-display" id="timer2">00:00:00</div>
             <div class="timer-controls">
@@ -180,7 +246,12 @@
         </div>
 
         <!-- Таймер 3 -->
-        <div class="timer-card">
+        <div class="timer-card" data-id="3">
+            <div class="drag-handle">
+                <div class="drag-dot"></div>
+                <div class="drag-dot"></div>
+                <div class="drag-dot"></div>
+            </div>
             <div class="timer-title">Правая верхняя ресница</div>
             <div class="timer-display" id="timer3">00:00:00</div>
             <div class="timer-controls">
@@ -191,7 +262,12 @@
         </div>
 
         <!-- Таймер 4 -->
-        <div class="timer-card">
+        <div class="timer-card" data-id="4">
+            <div class="drag-handle">
+                <div class="drag-dot"></div>
+                <div class="drag-dot"></div>
+                <div class="drag-dot"></div>
+            </div>
             <div class="timer-title">Правая нижняя ресница</div>
             <div class="timer-display" id="timer4">00:00:00</div>
             <div class="timer-controls">
@@ -202,7 +278,12 @@
         </div>
 
         <!-- Таймер 5 -->
-        <div class="timer-card">
+        <div class="timer-card" data-id="5">
+            <div class="drag-handle">
+                <div class="drag-dot"></div>
+                <div class="drag-dot"></div>
+                <div class="drag-dot"></div>
+            </div>
             <div class="timer-title">Окрашивание ресниц</div>
             <div class="timer-display" id="timer5">00:00:00</div>
             <div class="timer-controls">
@@ -350,6 +431,189 @@
                 }
             }
         }
+
+        // Функционал перетаскивания
+        class DragManager {
+            constructor() {
+                this.draggedItem = null;
+                this.dragStartY = 0;
+                this.dragOffsetY = 0;
+                this.container = document.getElementById('timersContainer');
+                this.timerCards = Array.from(this.container.querySelectorAll('.timer-card'));
+                this.placeholder = null;
+                this.currentDropIndex = -1;
+                this.originalIndex = -1;
+                
+                this.init();
+                this.loadOrder();
+            }
+            
+            init() {
+                // Добавляем обработчики событий для перетаскивания
+                this.timerCards.forEach(card => {
+                    const handle = card.querySelector('.drag-handle');
+                    
+                    // Начинаем перетаскивание при клике на handle
+                    handle.addEventListener('mousedown', (e) => this.startDrag(e, card));
+                    handle.addEventListener('touchstart', (e) => this.startDrag(e, card), { passive: false });
+                    
+                    // Предотвращаем запуск таймера при клике на handle
+                    handle.addEventListener('click', (e) => e.stopPropagation());
+                });
+                
+                // События для всего документа
+                document.addEventListener('mousemove', (e) => this.drag(e));
+                document.addEventListener('touchmove', (e) => this.drag(e), { passive: false });
+                document.addEventListener('mouseup', () => this.endDrag());
+                document.addEventListener('touchend', () => this.endDrag());
+            }
+            
+            startDrag(e, card) {
+                e.preventDefault();
+                e.stopPropagation();
+                
+                this.draggedItem = card;
+                const rect = card.getBoundingClientRect();
+                this.dragStartY = e.clientY || e.touches[0].clientY;
+                this.dragOffsetY = this.dragStartY - rect.top;
+                this.originalIndex = this.timerCards.indexOf(card);
+                this.currentDropIndex = this.originalIndex;
+                
+                // Добавляем класс для визуального эффекта
+                card.classList.add('dragging');
+                card.style.position = 'fixed';
+                card.style.width = rect.width + 'px';
+                card.style.height = rect.height + 'px';
+                card.style.left = rect.left + 'px';
+                card.style.top = rect.top + 'px';
+                card.style.zIndex = '1000';
+                
+                // Создаем плейсхолдер
+                this.createPlaceholder();
+            }
+            
+            createPlaceholder() {
+                this.placeholder = this.draggedItem.cloneNode(true);
+                this.placeholder.classList.remove('dragging');
+                this.placeholder.classList.add('placeholder');
+                this.placeholder.style.opacity = '0.6';
+                
+                // Убираем функциональность из плейсхолдера
+                const buttons = this.placeholder.querySelectorAll('button');
+                buttons.forEach(btn => btn.style.visibility = 'hidden');
+                const dragHandle = this.placeholder.querySelector('.drag-handle');
+                if (dragHandle) dragHandle.style.visibility = 'hidden';
+                
+                this.container.insertBefore(this.placeholder, this.draggedItem);
+            }
+            
+            drag(e) {
+                if (!this.draggedItem) return;
+                
+                e.preventDefault();
+                e.stopPropagation();
+                
+                const y = e.clientY || (e.touches && e.touches[0].clientY);
+                if (!y) return;
+                
+                // Перемещаем элемент
+                const newY = y - this.dragOffsetY;
+                this.draggedItem.style.top = newY + 'px';
+                
+                // Определяем новую позицию
+                const draggedRect = this.draggedItem.getBoundingClientRect();
+                const draggedCenter = draggedRect.top + draggedRect.height / 2;
+                
+                // Находим все карточки кроме перетаскиваемой
+                const otherCards = this.timerCards.filter(card => card !== this.draggedItem);
+                
+                let newIndex = this.originalIndex;
+                
+                for (let card of otherCards) {
+                    const cardRect = card.getBoundingClientRect();
+                    const cardCenter = cardRect.top + cardRect.height / 2;
+                    const cardIndex = this.timerCards.indexOf(card);
+                    
+                    if (draggedCenter < cardCenter && cardIndex > newIndex) {
+                        newIndex = cardIndex;
+                        break;
+                    } else if (draggedCenter > cardCenter && cardIndex < newIndex) {
+                        newIndex = cardIndex;
+                    }
+                }
+                
+                // Перемещаем плейсхолдер только если индекс изменился
+                if (newIndex !== this.currentDropIndex) {
+                    const targetElement = newIndex >= this.timerCards.length - 1 ? null : this.timerCards[newIndex + (newIndex > this.currentDropIndex ? 1 : 0)];
+                    
+                    if (targetElement && targetElement !== this.placeholder) {
+                        this.container.insertBefore(this.placeholder, targetElement);
+                    } else if (!targetElement && newIndex === this.timerCards.length - 1) {
+                        this.container.appendChild(this.placeholder);
+                    }
+                    
+                    this.currentDropIndex = newIndex;
+                }
+            }
+            
+            endDrag() {
+                if (!this.draggedItem) return;
+                
+                // Вставляем перетаскиваемый элемент на место плейсхолдера
+                if (this.placeholder && this.placeholder.parentNode) {
+                    this.container.insertBefore(this.draggedItem, this.placeholder);
+                    this.container.removeChild(this.placeholder);
+                }
+                
+                // Убираем классы и стили
+                this.draggedItem.classList.remove('dragging');
+                this.draggedItem.style.position = '';
+                this.draggedItem.style.width = '';
+                this.draggedItem.style.height = '';
+                this.draggedItem.style.left = '';
+                this.draggedItem.style.top = '';
+                this.draggedItem.style.zIndex = '';
+                
+                // Обновляем массив порядков
+                this.timerCards = Array.from(this.container.querySelectorAll('.timer-card'));
+                this.saveOrder();
+                
+                this.draggedItem = null;
+                this.placeholder = null;
+                this.currentDropIndex = -1;
+                this.originalIndex = -1;
+            }
+            
+            saveOrder() {
+                const order = this.timerCards.map(card => card.getAttribute('data-id'));
+                localStorage.setItem('timerOrder', JSON.stringify(order));
+            }
+            
+            loadOrder() {
+                const savedOrder = localStorage.getItem('timerOrder');
+                if (savedOrder) {
+                    const order = JSON.parse(savedOrder);
+                    
+                    // Сортируем элементы согласно сохраненному порядку
+                    const sortedCards = [];
+                    order.forEach(id => {
+                        const card = this.container.querySelector(`[data-id="${id}"]`);
+                        if (card) {
+                            sortedCards.push(card);
+                        }
+                    });
+                    
+                    // Очищаем контейнер и добавляем карточки в правильном порядке
+                    this.container.innerHTML = '';
+                    sortedCards.forEach(card => {
+                        this.container.appendChild(card);
+                    });
+                    
+                    // Обновляем массив порядков
+                    this.timerCards = Array.from(this.container.querySelectorAll('.timer-card'));
+                }
+            }
+        }
         
         // Создаем экземпляры таймеров
         const timer1 = new Timer('timer1', 'start1', 'stop1', 'reset1', 'timer1State');
@@ -357,6 +621,9 @@
         const timer3 = new Timer('timer3', 'start3', 'stop3', 'reset3', 'timer3State');
         const timer4 = new Timer('timer4', 'start4', 'stop4', 'reset4', 'timer4State');
         const timer5 = new Timer('timer5', 'start5', 'stop5', 'reset5', 'timer5State');
+        
+        // Инициализируем менеджер перетаскивания
+        const dragManager = new DragManager();
     </script>
 </body>
 </html>
