@@ -1,0 +1,362 @@
+<!DOCTYPE html>
+<html lang="ru">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Таймеры для мастера по ресницам</title>
+    <style>
+        * {
+            margin: 0;
+            padding: 0;
+            box-sizing: border-box;
+            font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif;
+        }
+
+        body {
+            background: linear-gradient(135deg, #f9f0ff 0%, #e6f0ff 100%);
+            min-height: 100vh;
+            padding: 15px;
+            display: flex;
+            flex-direction: column;
+            align-items: center;
+        }
+
+        .header {
+            text-align: center;
+            margin-bottom: 20px;
+            width: 100%;
+        }
+
+        h1 {
+            color: #8a2be2;
+            font-size: 1.6rem;
+            margin-bottom: 8px;
+        }
+
+        .subtitle {
+            color: #666;
+            font-size: 0.9rem;
+        }
+
+        .timers-container {
+            display: flex;
+            flex-direction: column;
+            gap: 12px;
+            width: 100%;
+            max-width: 400px;
+        }
+
+        .timer-card {
+            background: white;
+            border-radius: 12px;
+            box-shadow: 0 4px 12px rgba(0, 0, 0, 0.08);
+            padding: 15px;
+            display: flex;
+            flex-direction: column;
+            align-items: center;
+            transition: transform 0.2s ease;
+        }
+
+        .timer-card:hover {
+            transform: translateY(-2px);
+        }
+
+        .timer-title {
+            font-size: 0.9rem;
+            color: #8a2be2;
+            margin-bottom: 12px;
+            text-align: center;
+            font-weight: 600;
+        }
+
+        .timer-display {
+            font-size: 1.8rem;
+            font-weight: bold;
+            color: #333;
+            margin-bottom: 12px;
+            font-family: 'Courier New', monospace;
+            background: #f8f9fa;
+            padding: 8px 12px;
+            border-radius: 8px;
+            width: 100%;
+            text-align: center;
+        }
+
+        .timer-controls {
+            display: flex;
+            flex-wrap: wrap;
+            justify-content: center;
+            gap: 6px;
+            width: 100%;
+        }
+
+        button {
+            padding: 8px 12px;
+            border: none;
+            border-radius: 6px;
+            font-weight: 600;
+            cursor: pointer;
+            transition: all 0.2s ease;
+            font-size: 0.8rem;
+            flex-grow: 1;
+        }
+
+        .start-btn {
+            background-color: #4CAF50;
+            color: white;
+        }
+
+        .start-btn:hover {
+            background-color: #45a049;
+        }
+
+        .stop-btn {
+            background-color: #f44336;
+            color: white;
+        }
+
+        .stop-btn:hover {
+            background-color: #d32f2f;
+        }
+
+        .reset-btn {
+            background-color: #2196F3;
+            color: white;
+        }
+
+        .reset-btn:hover {
+            background-color: #0b7dda;
+        }
+
+        .hidden {
+            display: none;
+        }
+
+        @media (min-width: 768px) {
+            .timers-container {
+                display: grid;
+                grid-template-columns: 1fr 1fr;
+                gap: 15px;
+                max-width: 700px;
+            }
+            
+            h1 {
+                font-size: 2rem;
+            }
+            
+            .timer-display {
+                font-size: 2rem;
+            }
+        }
+    </style>
+</head>
+<body>
+    <div class="header">
+        <h1>Таймеры для мастера по ресницам</h1>
+        <p class="subtitle">Управляйте временем процедур</p>
+    </div>
+
+    <div class="timers-container">
+        <!-- Таймер 1 -->
+        <div class="timer-card">
+            <div class="timer-title">Левая верхняя ресница</div>
+            <div class="timer-display" id="timer1">00:00:00</div>
+            <div class="timer-controls">
+                <button class="start-btn" id="start1">Старт</button>
+                <button class="stop-btn" id="stop1">Стоп</button>
+                <button class="reset-btn hidden" id="reset1">Перезапуск</button>
+            </div>
+        </div>
+
+        <!-- Таймер 2 -->
+        <div class="timer-card">
+            <div class="timer-title">Левая нижняя ресница</div>
+            <div class="timer-display" id="timer2">00:00:00</div>
+            <div class="timer-controls">
+                <button class="start-btn" id="start2">Старт</button>
+                <button class="stop-btn" id="stop2">Стоп</button>
+                <button class="reset-btn hidden" id="reset2">Перезапуск</button>
+            </div>
+        </div>
+
+        <!-- Таймер 3 -->
+        <div class="timer-card">
+            <div class="timer-title">Правая верхняя ресница</div>
+            <div class="timer-display" id="timer3">00:00:00</div>
+            <div class="timer-controls">
+                <button class="start-btn" id="start3">Старт</button>
+                <button class="stop-btn" id="stop3">Стоп</button>
+                <button class="reset-btn hidden" id="reset3">Перезапуск</button>
+            </div>
+        </div>
+
+        <!-- Таймер 4 -->
+        <div class="timer-card">
+            <div class="timer-title">Правая нижняя ресница</div>
+            <div class="timer-display" id="timer4">00:00:00</div>
+            <div class="timer-controls">
+                <button class="start-btn" id="start4">Старт</button>
+                <button class="stop-btn" id="stop4">Стоп</button>
+                <button class="reset-btn hidden" id="reset4">Перезапуск</button>
+            </div>
+        </div>
+
+        <!-- Таймер 5 -->
+        <div class="timer-card">
+            <div class="timer-title">Окрашивание ресниц</div>
+            <div class="timer-display" id="timer5">00:00:00</div>
+            <div class="timer-controls">
+                <button class="start-btn" id="start5">Старт</button>
+                <button class="stop-btn" id="stop5">Стоп</button>
+                <button class="reset-btn hidden" id="reset5">Перезапуск</button>
+            </div>
+        </div>
+    </div>
+
+    <script>
+        // Класс для управления таймером
+        class Timer {
+            constructor(displayId, startBtnId, stopBtnId, resetBtnId, storageKey) {
+                this.display = document.getElementById(displayId);
+                this.startBtn = document.getElementById(startBtnId);
+                this.stopBtn = document.getElementById(stopBtnId);
+                this.resetBtn = document.getElementById(resetBtnId);
+                this.storageKey = storageKey;
+                
+                this.seconds = 0;
+                this.minutes = 0;
+                this.hours = 0;
+                this.interval = null;
+                this.isRunning = false;
+                
+                // Загружаем сохраненное состояние таймера
+                this.loadState();
+                
+                // Назначаем обработчики событий
+                this.startBtn.addEventListener('click', () => this.start());
+                this.stopBtn.addEventListener('click', () => this.stop());
+                this.resetBtn.addEventListener('click', () => this.reset());
+            }
+            
+            // Форматирование времени в формат HH:MM:SS
+            formatTime() {
+                return `${this.hours.toString().padStart(2, '0')}:${this.minutes.toString().padStart(2, '0')}:${this.seconds.toString().padStart(2, '0')}`;
+            }
+            
+            // Обновление отображения таймера
+            updateDisplay() {
+                this.display.textContent = this.formatTime();
+            }
+            
+            // Запуск таймера
+            start() {
+                if (!this.isRunning) {
+                    this.isRunning = true;
+                    this.interval = setInterval(() => {
+                        this.seconds++;
+                        if (this.seconds === 60) {
+                            this.seconds = 0;
+                            this.minutes++;
+                        }
+                        if (this.minutes === 60) {
+                            this.minutes = 0;
+                            this.hours++;
+                        }
+                        this.updateDisplay();
+                        this.saveState();
+                    }, 1000);
+                    
+                    // Скрываем кнопку перезапуска
+                    this.resetBtn.classList.add('hidden');
+                }
+            }
+            
+            // Остановка таймера
+            stop() {
+                if (this.isRunning) {
+                    this.isRunning = false;
+                    clearInterval(this.interval);
+                    this.saveState();
+                    
+                    // Показываем кнопку перезапуска
+                    this.resetBtn.classList.remove('hidden');
+                }
+            }
+            
+            // Сброс таймера
+            reset() {
+                this.stop();
+                this.seconds = 0;
+                this.minutes = 0;
+                this.hours = 0;
+                this.updateDisplay();
+                this.saveState();
+                
+                // Скрываем кнопку перезапуска
+                this.resetBtn.classList.add('hidden');
+            }
+            
+            // Сохранение состояния таймера в localStorage
+            saveState() {
+                const state = {
+                    seconds: this.seconds,
+                    minutes: this.minutes,
+                    hours: this.hours,
+                    isRunning: this.isRunning,
+                    // Сохраняем время последнего обновления
+                    lastUpdate: Date.now()
+                };
+                localStorage.setItem(this.storageKey, JSON.stringify(state));
+            }
+            
+            // Загрузка состояния таймера из localStorage
+            loadState() {
+                const savedState = localStorage.getItem(this.storageKey);
+                if (savedState) {
+                    const state = JSON.parse(savedState);
+                    
+                    // Если таймер был запущен, вычисляем прошедшее время
+                    if (state.isRunning && state.lastUpdate) {
+                        const elapsedSeconds = Math.floor((Date.now() - state.lastUpdate) / 1000);
+                        
+                        // Добавляем прошедшее время к сохраненному
+                        let totalSeconds = state.seconds + 
+                                         state.minutes * 60 + 
+                                         state.hours * 3600 + 
+                                         elapsedSeconds;
+                        
+                        // Пересчитываем часы, минуты и секунды
+                        this.hours = Math.floor(totalSeconds / 3600);
+                        totalSeconds %= 3600;
+                        this.minutes = Math.floor(totalSeconds / 60);
+                        this.seconds = totalSeconds % 60;
+                        
+                        // Запускаем таймер с обновленным временем
+                        this.start();
+                    } else {
+                        // Просто загружаем сохраненное время
+                        this.seconds = state.seconds;
+                        this.minutes = state.minutes;
+                        this.hours = state.hours;
+                        this.isRunning = false;
+                        
+                        this.updateDisplay();
+                        
+                        // Если таймер был остановлен, показываем кнопку перезапуска
+                        if (this.seconds > 0 || this.minutes > 0 || this.hours > 0) {
+                            this.resetBtn.classList.remove('hidden');
+                        }
+                    }
+                }
+            }
+        }
+        
+        // Создаем экземпляры таймеров
+        const timer1 = new Timer('timer1', 'start1', 'stop1', 'reset1', 'timer1State');
+        const timer2 = new Timer('timer2', 'start2', 'stop2', 'reset2', 'timer2State');
+        const timer3 = new Timer('timer3', 'start3', 'stop3', 'reset3', 'timer3State');
+        const timer4 = new Timer('timer4', 'start4', 'stop4', 'reset4', 'timer4State');
+        const timer5 = new Timer('timer5', 'start5', 'stop5', 'reset5', 'timer5State');
+    </script>
+</body>
+</html>
