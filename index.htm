@@ -65,7 +65,7 @@
             display: flex;
             flex-direction: column;
             align-items: center;
-            transition: transform 0.2s ease, box-shadow 0.2s ease;
+            transition: all 0.3s ease;
             position: relative;
             user-select: none;
         }
@@ -82,10 +82,31 @@
             z-index: 1000;
         }
 
-        .timer-card.placeholder {
-            background: rgba(138, 43, 226, 0.05);
-            border: 2px dashed #8a2be2;
-            opacity: 0.6;
+        .timer-card.alert {
+            animation: shake 0.5s ease-in-out infinite;
+            border: 2px solid #ff4444;
+            background: #fff5f5;
+        }
+
+        .timer-card.alert .timer-display {
+            color: #ff4444;
+            font-weight: bold;
+        }
+
+        .timer-card.alert .timer-title {
+            color: #ff4444;
+        }
+
+        .other-timers-dimmed {
+            opacity: 0.4;
+            filter: blur(1px);
+            transition: all 0.3s ease;
+        }
+
+        @keyframes shake {
+            0%, 100% { transform: translateX(0); }
+            25% { transform: translateX(-3px); }
+            75% { transform: translateX(3px); }
         }
 
         .drag-handle {
@@ -303,12 +324,14 @@
                 this.stopBtn = document.getElementById(stopBtnId);
                 this.resetBtn = document.getElementById(resetBtnId);
                 this.storageKey = storageKey;
+                this.card = this.display.closest('.timer-card');
                 
                 this.seconds = 0;
                 this.minutes = 0;
                 this.hours = 0;
                 this.interval = null;
                 this.isRunning = false;
+                this.hasAlerted = false;
                 
                 // Загружаем сохраненное состояние таймера
                 this.loadState();
@@ -327,6 +350,11 @@
             // Обновление отображения таймера
             updateDisplay() {
                 this.display.textContent = this.formatTime();
+                
+                // Проверяем, прошло ли 15 минут
+                if ((this.minutes >= 15 || this.hours > 0) && !this.hasAlerted) {
+                    this.triggerAlert();
+                }
             }
             
             // Запуск таймера
@@ -359,6 +387,9 @@
                     clearInterval(this.interval);
                     this.saveState();
                     
+                    // Убираем алерт если был
+                    this.removeAlert();
+                    
                     // Показываем кнопку перезапуска
                     this.resetBtn.classList.remove('hidden');
                 }
@@ -370,11 +401,44 @@
                 this.seconds = 0;
                 this.minutes = 0;
                 this.hours = 0;
+                this.hasAlerted = false;
                 this.updateDisplay();
                 this.saveState();
                 
+                // Убираем алерт
+                this.removeAlert();
+                
                 // Скрываем кнопку перезапуска
                 this.resetBtn.classList.add('hidden');
+            }
+            
+            // Активация алерта
+            triggerAlert() {
+                this.hasAlerted = true;
+                this.card.classList.add('alert');
+                
+                // Затемняем другие таймеры
+                const allCards = document.querySelectorAll('.timer-card');
+                allCards.forEach(card => {
+                    if (card !== this.card) {
+                        card.classList.add('other-timers-dimmed');
+                    }
+                });
+                
+                // Прокручиваем к алертному таймеру
+                this.card.scrollIntoView({ behavior: 'smooth', block: 'center' });
+            }
+            
+            // Удаление алерта
+            removeAlert() {
+                this.card.classList.remove('alert');
+                this.hasAlerted = false;
+                
+                // Возвращаем нормальный вид другим таймерам
+                const allCards = document.querySelectorAll('.timer-card');
+                allCards.forEach(card => {
+                    card.classList.remove('other-timers-dimmed');
+                });
             }
             
             // Сохранение состояния таймера в localStorage
@@ -384,7 +448,7 @@
                     minutes: this.minutes,
                     hours: this.hours,
                     isRunning: this.isRunning,
-                    // Сохраняем время последнего обновления
+                    hasAlerted: this.hasAlerted,
                     lastUpdate: Date.now()
                 };
                 localStorage.setItem(this.storageKey, JSON.stringify(state));
@@ -412,20 +476,33 @@
                         this.minutes = Math.floor(totalSeconds / 60);
                         this.seconds = totalSeconds % 60;
                         
+                        this.hasAlerted = state.hasAlerted || false;
+                        
                         // Запускаем таймер с обновленным временем
                         this.start();
+                        
+                        // Если уже было предупреждение, активируем его
+                        if (this.hasAlerted) {
+                            this.triggerAlert();
+                        }
                     } else {
                         // Просто загружаем сохраненное время
                         this.seconds = state.seconds;
                         this.minutes = state.minutes;
                         this.hours = state.hours;
                         this.isRunning = false;
+                        this.hasAlerted = state.hasAlerted || false;
                         
                         this.updateDisplay();
                         
                         // Если таймер был остановлен, показываем кнопку перезапуска
                         if (this.seconds > 0 || this.minutes > 0 || this.hours > 0) {
                             this.resetBtn.classList.remove('hidden');
+                        }
+                        
+                        // Если было предупреждение, активируем его
+                        if (this.hasAlerted) {
+                            this.triggerAlert();
                         }
                     }
                 }
@@ -436,13 +513,9 @@
         class DragManager {
             constructor() {
                 this.draggedItem = null;
-                this.dragStartY = 0;
-                this.dragOffsetY = 0;
+                this.dragStartIndex = 0;
                 this.container = document.getElementById('timersContainer');
                 this.timerCards = Array.from(this.container.querySelectorAll('.timer-card'));
-                this.placeholder = null;
-                this.currentDropIndex = -1;
-                this.originalIndex = -1;
                 
                 this.init();
                 this.loadOrder();
@@ -470,118 +543,56 @@
             
             startDrag(e, card) {
                 e.preventDefault();
-                e.stopPropagation();
-                
                 this.draggedItem = card;
-                const rect = card.getBoundingClientRect();
-                this.dragStartY = e.clientY || e.touches[0].clientY;
-                this.dragOffsetY = this.dragStartY - rect.top;
-                this.originalIndex = this.timerCards.indexOf(card);
-                this.currentDropIndex = this.originalIndex;
+                this.dragStartIndex = this.timerCards.indexOf(card);
                 
                 // Добавляем класс для визуального эффекта
                 card.classList.add('dragging');
-                card.style.position = 'fixed';
-                card.style.width = rect.width + 'px';
-                card.style.height = rect.height + 'px';
-                card.style.left = rect.left + 'px';
-                card.style.top = rect.top + 'px';
-                card.style.zIndex = '1000';
-                
-                // Создаем плейсхолдер
-                this.createPlaceholder();
-            }
-            
-            createPlaceholder() {
-                this.placeholder = this.draggedItem.cloneNode(true);
-                this.placeholder.classList.remove('dragging');
-                this.placeholder.classList.add('placeholder');
-                this.placeholder.style.opacity = '0.6';
-                
-                // Убираем функциональность из плейсхолдера
-                const buttons = this.placeholder.querySelectorAll('button');
-                buttons.forEach(btn => btn.style.visibility = 'hidden');
-                const dragHandle = this.placeholder.querySelector('.drag-handle');
-                if (dragHandle) dragHandle.style.visibility = 'hidden';
-                
-                this.container.insertBefore(this.placeholder, this.draggedItem);
             }
             
             drag(e) {
                 if (!this.draggedItem) return;
                 
                 e.preventDefault();
-                e.stopPropagation();
-                
                 const y = e.clientY || (e.touches && e.touches[0].clientY);
                 if (!y) return;
                 
-                // Перемещаем элемент
-                const newY = y - this.dragOffsetY;
-                this.draggedItem.style.top = newY + 'px';
+                // Находим элемент под курсором
+                const elements = document.elementsFromPoint(
+                    e.clientX || (e.touches && e.touches[0].clientX), 
+                    y
+                );
                 
-                // Определяем новую позицию
-                const draggedRect = this.draggedItem.getBoundingClientRect();
-                const draggedCenter = draggedRect.top + draggedRect.height / 2;
+                const targetCard = elements.find(el => el.classList.contains('timer-card') && el !== this.draggedItem);
                 
-                // Находим все карточки кроме перетаскиваемой
-                const otherCards = this.timerCards.filter(card => card !== this.draggedItem);
-                
-                let newIndex = this.originalIndex;
-                
-                for (let card of otherCards) {
-                    const cardRect = card.getBoundingClientRect();
-                    const cardCenter = cardRect.top + cardRect.height / 2;
-                    const cardIndex = this.timerCards.indexOf(card);
+                if (targetCard) {
+                    const targetIndex = this.timerCards.indexOf(targetCard);
+                    const draggedIndex = this.timerCards.indexOf(this.draggedItem);
                     
-                    if (draggedCenter < cardCenter && cardIndex > newIndex) {
-                        newIndex = cardIndex;
-                        break;
-                    } else if (draggedCenter > cardCenter && cardIndex < newIndex) {
-                        newIndex = cardIndex;
+                    if (targetIndex !== -1 && targetIndex !== draggedIndex) {
+                        // Меняем местами элементы
+                        if (targetIndex > draggedIndex) {
+                            this.container.insertBefore(this.draggedItem, targetCard.nextSibling);
+                        } else {
+                            this.container.insertBefore(this.draggedItem, targetCard);
+                        }
+                        
+                        // Обновляем массив
+                        this.timerCards = Array.from(this.container.querySelectorAll('.timer-card'));
                     }
-                }
-                
-                // Перемещаем плейсхолдер только если индекс изменился
-                if (newIndex !== this.currentDropIndex) {
-                    const targetElement = newIndex >= this.timerCards.length - 1 ? null : this.timerCards[newIndex + (newIndex > this.currentDropIndex ? 1 : 0)];
-                    
-                    if (targetElement && targetElement !== this.placeholder) {
-                        this.container.insertBefore(this.placeholder, targetElement);
-                    } else if (!targetElement && newIndex === this.timerCards.length - 1) {
-                        this.container.appendChild(this.placeholder);
-                    }
-                    
-                    this.currentDropIndex = newIndex;
                 }
             }
             
             endDrag() {
                 if (!this.draggedItem) return;
                 
-                // Вставляем перетаскиваемый элемент на место плейсхолдера
-                if (this.placeholder && this.placeholder.parentNode) {
-                    this.container.insertBefore(this.draggedItem, this.placeholder);
-                    this.container.removeChild(this.placeholder);
-                }
-                
-                // Убираем классы и стили
+                // Убираем класс
                 this.draggedItem.classList.remove('dragging');
-                this.draggedItem.style.position = '';
-                this.draggedItem.style.width = '';
-                this.draggedItem.style.height = '';
-                this.draggedItem.style.left = '';
-                this.draggedItem.style.top = '';
-                this.draggedItem.style.zIndex = '';
                 
-                // Обновляем массив порядков
-                this.timerCards = Array.from(this.container.querySelectorAll('.timer-card'));
+                // Сохраняем порядок
                 this.saveOrder();
                 
                 this.draggedItem = null;
-                this.placeholder = null;
-                this.currentDropIndex = -1;
-                this.originalIndex = -1;
             }
             
             saveOrder() {
